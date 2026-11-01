@@ -39,6 +39,11 @@ h1{font-family:var(--f-display);font-weight:400;font-size:clamp(1.8rem,4vw,2.5re
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;padding:3px;background:var(--sheet)}
 .seg button{border:0;padding:6px 12px;border-radius:5px;font-size:.85rem}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
+.ib{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;font-size:.85rem;background:var(--sheet)}
+.ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.layout.collapsed{grid-template-columns:minmax(0,1fr)}
+.layout.collapsed .rail{display:none}
 .jump{display:none;flex-direction:column;gap:4px;font-weight:700;font-size:.85rem;width:100%}
 .layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:24px;align-items:start}
 .rail{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);display:flex;flex-direction:column;gap:18px}
@@ -47,7 +52,7 @@ h1{font-family:var(--f-display);font-weight:400;font-size:clamp(1.8rem,4vw,2.5re
 .rail a:hover{background:var(--sheet)}
 .rail a[aria-current="page"]{background:var(--accent);color:var(--accent-ink)}
 .rail .sec{font-family:var(--f-mono);font-size:.78rem;opacity:.7;min-width:2.6em;padding-top:1px}
-@media (max-width:860px){.navctl{width:100%;align-items:stretch}.seg{align-self:flex-start}.layout{grid-template-columns:minmax(0,1fr)}.rail{display:none}.jump{display:flex}}
+@media (max-width:860px){.navctl{width:100%;align-items:stretch}.bar{justify-content:flex-start}#menuBtn{display:none}.layout{grid-template-columns:minmax(0,1fr)}.rail{display:none}.jump{display:flex}}
 
 .sheet{background:var(--sheet);border:1px solid var(--line);border-radius:10px;padding:clamp(18px,3vw,34px);min-width:0}
 .eyebrow{font:600 .8rem var(--f-mono);color:var(--accent);letter-spacing:.03em}
@@ -135,7 +140,7 @@ footer a,.sheet a{color:var(--accent)}
       <h1>Intro Stats Toolkit</h1>
       <p>Step-by-step statistics calculators for Chapters 1–4.</p>
     </div>
-    <div class="navctl"><div class="seg" role="group" aria-label="Organize calculators"><button type="button" data-mode="section" aria-pressed="true">By section</button><button type="button" data-mode="type" aria-pressed="false">By type</button></div>
+    <div class="navctl"><div class="bar"><button type="button" class="ib" id="menuBtn" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg><span>Hide menu</span></button><button type="button" class="ib" id="themeBtn"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg><span>Dark mode</span></button><div class="seg" role="group" aria-label="Organize calculators"><button type="button" data-mode="section" aria-pressed="true">By section</button><button type="button" data-mode="type" aria-pressed="false">By type</button></div></div>
     <label class="jump" for="jump">Calculator<select id="jump"></select></label></div>
   </header>
   <div class="layout">
@@ -746,6 +751,16 @@ function mount(id){
   $("#main .inputs").addEventListener("input",e=>{$("#exHint").hidden=true;clearTimeout(timer);timer=setTimeout(()=>run("input"),160);});
 }
 function route(){const id=location.hash.slice(1);mount(byId[id]?id:"summary");}
+/* theme and menu toggles */
+const rootEl=document.documentElement,mq=matchMedia("(prefers-color-scheme: dark)");
+const lsGet=k=>{try{return localStorage.getItem(k);}catch(e){return null;}},lsSet=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
+function themeUI(){const dark=(rootEl.dataset.theme||(mq.matches?"dark":"light"))==="dark";$("#themeBtn span").textContent=dark?"Light mode":"Dark mode";$("#themeBtn").setAttribute("aria-label",dark?"Switch to light mode":"Switch to dark mode");}
+const savedTheme=lsGet("theme");if(savedTheme==="dark"||savedTheme==="light")rootEl.dataset.theme=savedTheme;
+$("#themeBtn").addEventListener("click",()=>{const dark=(rootEl.dataset.theme||(mq.matches?"dark":"light"))==="dark";rootEl.dataset.theme=dark?"light":"dark";lsSet("theme",rootEl.dataset.theme);themeUI();});
+mq.addEventListener&&mq.addEventListener("change",themeUI);themeUI();
+function menuUI(hidden){$(".layout").classList.toggle("collapsed",hidden);$("#menuBtn span").textContent=hidden?"Show menu":"Hide menu";$("#menuBtn").setAttribute("aria-pressed",String(hidden));}
+menuUI(lsGet("railHidden")==="1");
+$("#menuBtn").addEventListener("click",()=>{const h=!$(".layout").classList.contains("collapsed");menuUI(h);lsSet("railHidden",h?"1":"0");});
 buildNav();window.addEventListener("hashchange",()=>{route();window.scrollTo({top:0});});route();
 </script>
 
