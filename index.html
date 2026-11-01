@@ -369,6 +369,50 @@ compute(get){
     `Write each leaf next to its stem, in order. Every value gets a leaf, so repeated values appear more than once.`]);
   return out;}});
 
+/* ---- 2: line graph / bar graph ---- */
+function lineSVG({xs,ys,xTitle,yTitle,bars=false}){
+  const W=680,H=320,L=78,R=24,T=16,B=72,pw=W-L-R,ph=H-T-B;
+  const ty=ticks(0,(Math.max(...ys)||1)*1.08,8),top=ty[ty.length-1];
+  const xmin=Math.min(...xs),xmax=Math.max(...xs);let tx=ticks(xmin,xmax,Math.min(10,Math.max(4,xs.length)));
+  const span=(tx[tx.length-1]-tx[0])||1,step=tx.length>1?tx[1]-tx[0]:1;
+  const x0=tx[0]-(bars?step/2:0),x1=tx[tx.length-1]+(bars?step/2:step*0.6);
+  const X=v=>L+(v-x0)/(x1-x0)*pw,Y=v=>T+ph-(v/top)*ph;
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${bars?"Bar graph":"Line graph"}">`;
+  for(const t of ty)s+=`<line class="ax" x1="${L}" x2="${W-R}" y1="${Y(t)}" y2="${Y(t)}"/><text x="${L-10}" y="${Y(t)+5}" text-anchor="end">${f(t,4)}</text>`;
+  s+=`<line class="axd" x1="${L}" x2="${W-R}" y1="${T+ph}" y2="${T+ph}"/><line class="axd" x1="${L}" x2="${L}" y1="${T}" y2="${T+ph}"/>`;
+  for(const t of tx)s+=`<line class="axd" x1="${X(t)}" x2="${X(t)}" y1="${T+ph}" y2="${T+ph+6}"/><text x="${X(t)}" y="${T+ph+24}" text-anchor="middle">${f(t,6)}</text>`;
+  if(bars){const bw=Math.min(pw/xs.length,(X(step)-X(0)))*0.6;xs.forEach((v,i)=>s+=`<rect class="bar hi" x="${X(v)-bw/2}" y="${Y(ys[i])}" width="${bw}" height="${T+ph-Y(ys[i])}"><title>${v}: ${f(ys[i],4)}</title></rect>`);}
+  else{s+=`<polyline class="poly" points="${xs.map((v,i)=>`${X(v)},${Y(ys[i])}`).join(" ")}"/>`+xs.map((v,i)=>`<rect class="dot" x="${X(v)-5}" y="${Y(ys[i])-5}" width="10" height="10"><title>${v}: ${f(ys[i],4)}</title></rect>`).join("");}
+  s+=`<text class="lbl" x="${L+pw/2}" y="${H-12}" text-anchor="middle">${esc(xTitle)}</text>`;
+  s+=`<text class="lbl" transform="translate(20 ${T+ph/2}) rotate(-90)" text-anchor="middle">${esc(yTitle)}</text>`;
+  return s+"</svg>";
+}
+tool({id:"line-graph",ch:2,sec:"2.1",title:"Line graph and bar graph",nav:"Line graph / bar graph",
+lede:"Plots how often each value occurs. Enter a list of data, or a frequency table with one value and its frequency per line.",
+html:area("lg-data","Data","A list like  0 1 1 2 3 3 3  or, as a table, one line per value:  3, 14",6)
+ +sel("lg-in","The data are",[["table","A frequency table (value, frequency)"],["list","A list of values"]])
+ +sel("lg-kind","Graph",[["line","Line graph"],["bar","Bar graph"]])
+ +sel("lg-y","Vertical axis",[["f","Frequency"],["rf","Relative frequency"]])
+ +fld("lg-xt","Horizontal axis label",'autocomplete="off"'),
+example:{"lg-data":"0, 2\n1, 5\n2, 8\n3, 14\n4, 7\n5, 4","lg-in":"table","lg-kind":"line","lg-y":"f","lg-xt":"Number of times teenager is reminded"},exampleNote:"Example: how many times 40 teenagers are reminded to do their chores.",
+compute(get){
+  const str=get("lg-data"),cnt=new Map();
+  if(get("lg-in")==="table"){
+    const lines=str.split(/\n+/).map(t=>t.trim()).filter(Boolean);if(!lines.length)throw new UserErr("Enter one line per value, like  3, 14");
+    for(const L of lines){const p=L.split(/[\s,;:]+/).filter(Boolean);if(p.length!==2||!p.every(t=>isFinite(Number(t))))throw new UserErr(`I couldn't read “${esc(L)}”. Use the form  value, frequency. If you typed a plain list, change “The data are” to “A list of values”.`);
+      if(+p[1]<0)throw new UserErr("Frequencies can't be negative.");const v=+p[0];cnt.set(v,(cnt.get(v)||0)+ +p[1]);}
+  }else{const{vals}=parseData(str);vals.forEach(v=>cnt.set(v,(cnt.get(v)||0)+1));}
+  const xs=[...cnt.keys()].sort((a,b)=>a-b),fq=xs.map(x=>cnt.get(x)),n=sum(fq);if(n===0)throw new UserErr("The frequencies add to 0.");
+  const rel=get("lg-y")==="rf",ys=rel?fq.map(c=>c/n):fq,yT=rel?"Relative frequency":"Frequency",xT=get("lg-xt").trim()||"Value";
+  const bars=get("lg-kind")==="bar";const mx=Math.max(...fq),modes=xs.filter((_,i)=>fq[i]===mx);
+  let out=answers([["Total, n",n],["Most frequent value",modes.join(", "),`frequency ${mx}`]]);
+  out+=chart(lineSVG({xs,ys,xTitle:xT,yTitle:yT,bars}));
+  out+=tbl(["Value","Frequency","Relative frequency"],xs.map((x,i)=>[x,fq[i],f(fq[i]/n,4)]),["Total",n,"1"]);
+  out+=steps([`Put the values (${esc(xT.toLowerCase())}) on the horizontal axis and ${yT.toLowerCase()} on the vertical axis.`,
+    rel?`Relative frequency = frequency ÷ n. For example, ${xs[0]}: ${m(`${fq[0]} / ${n} = ${f(fq[0]/n,4)}`)}`:`Use each value's frequency as its height. For example, ${xs[0]} has frequency ${fq[0]}.`,
+    bars?"Draw a bar above each value. The bars do not touch.":"Plot a point above each value at its height, then connect the points in order with straight lines."]);
+  return out;}});
+
 /* ---- 2: histogram ---- */
 tool({id:"histogram",ch:2,sec:"2.2",title:"Histogram and frequency polygon",nav:"Histogram",
 lede:"Picks a starting point and bar width the way the textbook does, then draws the histogram and frequency table.",
@@ -709,7 +753,7 @@ for(const D of DISTS){
 /* ========== APP SHELL ========== */
 const byId=Object.fromEntries(tools.map(t=>[t.id,t]));
 const saved={};let cur=null,timer=null;
-const TYPES=[["Sampling",["random-sample"]],["Tables and graphs",["frequency-table","stemplot","histogram"]],
+const TYPES=[["Sampling",["random-sample"]],["Tables and graphs",["frequency-table","stemplot","line-graph","histogram"]],
   ["Center, spread, and position",["summary","grouped","percentile","z-score"]],["Probability",["prob-rules","contingency","tree"]],
   ["Probability distributions",["pdf-table","binomial","geometric","hypergeometric","poisson"]]];
 let navMode="section";try{navMode=localStorage.getItem("navMode")==="type"?"type":"section";}catch(e){}
